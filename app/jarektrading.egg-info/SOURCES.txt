@@ -1,0 +1,10 @@
+LICENSE.txt
+setup.py
+app/jarektrading/__init__.py
+app/jarektrading.egg-info/PKG-INFO
+app/jarektrading.egg-info/SOURCES.txt
+app/jarektrading.egg-info/dependency_links.txt
+app/jarektrading.egg-info/requires.txt
+app/jarektrading.egg-info/top_level.txt
+app/jarektrading/src/__init__.py
+app/jarektrading/src/jarektrading.py

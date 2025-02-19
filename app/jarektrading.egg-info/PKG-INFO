@@ -1,0 +1,25 @@
+Metadata-Version: 2.2
+Name: jarektrading
+Version: 0.2.2
+Summary: Helpful model for trading.
+Home-page: 
+Author: Oleksandr Nazarevych
+Author-email: oleksandr.o.nazarevych@gmail.com
+License: MIT
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Provides-Extra: dev
+Requires-Dist: twine>=4.0.2; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
+
+Hello, Jarek!
