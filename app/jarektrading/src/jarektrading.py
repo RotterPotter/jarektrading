@@ -82,7 +82,7 @@ class Service:
                    "Consecutive Losses", "Losses Quantity", "BE Quantity", "Win Quantity"]
         return pd.DataFrame([[opened_trades_count, win_ratio, pl, average_rr, max_drop_down, max_consecutive_losses, losses_quantity, be_quantity, win_quantity]], columns=columns)
 
-    def backtest_debug(self, start_date, end_date, file_path):
+    def backtest(self, start_date, end_date, file_path, debug=False):
         df = pd.read_csv(file_path, sep=';', parse_dates=['Date'])
 
         # Define report dataframe structure
@@ -189,9 +189,10 @@ class Service:
                                 buy_price = self.calculate_buy_price(
                                     pdLSL, adH)
 
-                new_data = pd.DataFrame([["DEBUG", hero_date.date(), self.WEEKDAYS[hero_date.weekday()], candle_time, "None", "XAUUSD", reward_to_risk, "None", "None", pdLSH,
-                                        pdLSL, adH, adL, sell_price, buy_price, stop_loss, take_profit, candle_data.High, candle_data.Low, candle_data.Close]], columns=report_columns)
-                report_df = pd.concat([report_df, new_data], ignore_index=True)
+                if debug:
+                    new_data = pd.DataFrame([["DEBUG", hero_date.date(), self.WEEKDAYS[hero_date.weekday()], candle_time, "None", "XAUUSD", reward_to_risk, "None", "None", pdLSH,
+                                            pdLSL, adH, adL, sell_price, buy_price, stop_loss, take_profit, candle_data.High, candle_data.Low, candle_data.Close]], columns=report_columns)
+                    report_df = pd.concat([report_df, new_data], ignore_index=True)
                 # took above line out in order to see the rapor_df only with trades opened and closed , without the "DEBUG" lines. To make my analizing easier
 
                 if active_order == "SELL":
