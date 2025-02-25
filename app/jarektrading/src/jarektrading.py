@@ -39,6 +39,8 @@ class Service:
     def calculate_half_fib_buy(self, pdLSL: float, adH: float) -> float:
         return adH - ((adH - pdLSL) * 0.5)
 
+    # def calculate_pl_buy(self, rr, trade_closing, stop_loss, buy_price,  closed_by_time_condition=False)
+
     # Oleksandr updated 08/02  !!!
 
     def generate_summary(self, report_df) -> pd.DataFrame:
@@ -51,23 +53,25 @@ class Service:
         else:
             win_ratio = (len(
                 closed_trades_df[closed_trades_df["Result"] == "WIN"]) / closed_trades_count) * 100
-        n = 1
+        n = 0
         rr_sum = 0
-        for win_row in closed_trades_df[closed_trades_df["Result"] == "WIN"].itertuples(index=False):
-            rr_sum += float(win_row._6.split(":")[1])
+        for row in opened_trades_df.itertuples(index=False):
+            rr_sum += float(row._6.split(":")[1])
             n += 1
-        average_rr = rr_sum / n
-        max_drop_down = closed_trades_df["P/L"].min()
+        average_rr = None if n == 0 else rr_sum / n
+        max_drop_down = None
+        capital = 1
         pl = 0
         consecutive_losses = 0
         # suggestion new vatriable max_consecutive_losses:
         max_consecutive_losses = 0
 
+
         for trade_row in closed_trades_df.itertuples(index=False):
             pl += float(trade_row._8)
             if trade_row.Result == "LOSS":
                 consecutive_losses += 1
-            elif trade_row.Result == "WIN":
+            elif trade_row.Result == "WIN" or "BE":
                 if consecutive_losses > max_consecutive_losses:
                     max_consecutive_losses = consecutive_losses
                 consecutive_losses = 0
@@ -78,9 +82,12 @@ class Service:
         win_quantity = len(
             closed_trades_df[closed_trades_df["Result"] == "WIN"])
 
-        columns = ["Opened Trades", "Win Ratio", "P/L", "Average R:R", "Max Drop Down",
+        win_ratio_excl = win_quantity / (opened_trades_count - be_quantity) * 100
+        # Win Quantity / (Opened Trades - BE Quantity)
+
+        columns = ["Opened Trades", "Win Ratio","Win Ratio excl.BE",  "P/L", "Average R:R", "Max Drop Down",
                    "Consecutive Losses", "Losses Quantity", "BE Quantity", "Win Quantity"]
-        return pd.DataFrame([[opened_trades_count, win_ratio, pl, average_rr, max_drop_down, max_consecutive_losses, losses_quantity, be_quantity, win_quantity]], columns=columns)
+        return pd.DataFrame([[opened_trades_count, win_ratio,win_ratio_excl, pl, average_rr, max_drop_down, max_consecutive_losses, losses_quantity, be_quantity, win_quantity]], columns=columns)
 
     def backtest(self, start_date, end_date, file_path, debug=False):
         df = pd.read_csv(file_path, sep=';', parse_dates=['Date'])
@@ -112,6 +119,7 @@ class Service:
 
             pdls_df = previous_day_df[(previous_day_df["Time"] >= self.LONDON_SESSION_START_TIME) &
                                       (previous_day_df["Time"] <= self.LONDON_SESSION_END_TIME)]
+
             # Oleksandr updated 11/02
             n = 2
             while pdls_df.empty:
@@ -148,6 +156,7 @@ class Service:
             stop_loss_is_sell_price = False
             stop_loss_is_buy_price = False
 
+            stop_loss_on_trade_opening = None
             # Iterate through candles
             for candle_data in hero_date_df.itertuples(index=False):
 
@@ -199,10 +208,25 @@ class Service:
                     half_fib_sell = self.calculate_half_fib_sell(pdLSH, adL)
                     # print(f"!Date: {hero_date.date()}, Time: {candle_time}, Candle_Low: {candle_data.Low} Fib_Sell: {half_fib_sell}, Fib_Buy: {calculate_half_fib_buy(pdLSL, adH)}\n\n")
                     # Set StopLoss to SellPrice if price reached 50%fib - Oleksandr updated 09/02  !!!
+
+                    if candle_time >= self.END_TIME:
+                        # Oleksandr updated 08/02  !!!
+                        # Define result, calculate P/L
+                        result = "WIN" if candle_data.Close <= sell_price else "LOSS"
+                        # pl = f"+{reward_to_risk.split(':')[1]}" if result == "WIN" else f"-{reward_to_risk.split(':')[1]}"
+
+                        pl = (sell_price - candle_data.Close) / (stop_loss_on_trade_opening - sell_price)
+                        new_data = pd.DataFrame([["CLOSING", hero_date.date(), self.WEEKDAYS[hero_date.weekday()], candle_time, active_order, "XAUUSD", reward_to_risk, result, pl,
+                                                pdLSH, pdLSL, adH, adL, sell_price, buy_price, stop_loss, take_profit, candle_data.High, candle_data.Low, candle_data.Close]], columns=report_columns)
+                        report_df = pd.concat(
+                            [report_df, new_data], ignore_index=True)
+                        break
+
                     if candle_data.Low <= half_fib_sell:
                         # print("UPDATING!!!!!!!-----------------------")
                         stop_loss = sell_price
                         stop_loss_is_sell_price = True
+
 
                     if candle_data.High >= stop_loss and stop_loss_is_sell_price == True:
                         new_data = pd.DataFrame([["CLOSING", hero_date.date(), self.WEEKDAYS[hero_date.weekday()], candle_time, "SELL", "XAUUSD", reward_to_risk, "BE", "0", pdLSH,
@@ -242,11 +266,17 @@ class Service:
                         sell_was_closed = True
                         stop_loss_is_sell_price = False
 
-                    elif candle_time >= self.END_TIME:
+
+
+                elif active_order == "BUY":
+                    # Set StopLoss to BuyPrice if price reached 50%fib - Oleksandr updated 09/02  !!!
+                    if candle_time >= self.END_TIME:
                         # Oleksandr updated 08/02  !!!
                         # Define result, calculate P/L
-                        result = "WIN" if candle_data.Close <= sell_price else "LOSS"
-                        pl = f"+{reward_to_risk.split(':')[1]}" if result == "WIN" else f"-{reward_to_risk.split(':')[1]}"
+                        result = "WIN" if candle_data.Close >= buy_price else "LOSS"
+                        pl = (candle_data.Close - buy_price) / (buy_price - stop_loss_on_trade_opening)
+
+                        pl = f"+{round(pl,2)}" if result == "WIN" else f"-{round(pl,2)}"
 
                         new_data = pd.DataFrame([["CLOSING", hero_date.date(), self.WEEKDAYS[hero_date.weekday()], candle_time, active_order, "XAUUSD", reward_to_risk, result, pl,
                                                 pdLSH, pdLSL, adH, adL, sell_price, buy_price, stop_loss, take_profit, candle_data.High, candle_data.Low, candle_data.Close]], columns=report_columns)
@@ -254,8 +284,6 @@ class Service:
                             [report_df, new_data], ignore_index=True)
                         break
 
-                elif active_order == "BUY":
-                    # Set StopLoss to BuyPrice if price reached 50%fib - Oleksandr updated 09/02  !!!
                     if candle_data.High >= self.calculate_half_fib_buy(pdLSL, adH):
                         stop_loss = buy_price
                         stop_loss_is_buy_price = True
@@ -301,17 +329,7 @@ class Service:
                         byt_was_closed = True
                         stop_loss_is_buy_price = False
 
-                    elif candle_time >= self.END_TIME:
-                        # Oleksandr updated 08/02  !!!
-                        # Define result, calculate P/L
-                        result = "WIN" if candle_data.Close >= buy_price else "LOSS"
-                        pl = f"+{reward_to_risk.split(':')[1]}" if result == "WIN" else f"-{reward_to_risk.split(':')[1]}"
 
-                        new_data = pd.DataFrame([["CLOSING", hero_date.date(), self.WEEKDAYS[hero_date.weekday()], candle_time, active_order, "XAUUSD", reward_to_risk, result, pl,
-                                                pdLSH, pdLSL, adH, adL, sell_price, buy_price, stop_loss, take_profit, candle_data.High, candle_data.Low, candle_data.Close]], columns=report_columns)
-                        report_df = pd.concat(
-                            [report_df, new_data], ignore_index=True)
-                        break
 
                 # Execute trade
                 elif active_order is None:
@@ -330,6 +348,7 @@ class Service:
 
                         active_order = "SELL"
                         stop_loss = pdLSH
+                        stop_loss_on_trade_opening = stop_loss
                         take_profit = adL
                         reward_to_risk = self.calculate_rr(
                             sell_price, stop_loss, take_profit, trade_type="SELL")
@@ -344,6 +363,7 @@ class Service:
 
                         active_order = "BUY"
                         stop_loss = pdLSL
+                        stop_loss_on_trade_opening = stop_loss
                         take_profit = adH
                         reward_to_risk = self.calculate_rr(
                             buy_price, stop_loss, take_profit, trade_type="BUY")

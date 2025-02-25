@@ -9,7 +9,7 @@ except FileNotFoundError:
 
 setup(
     name="jarektrading",
-    version="0.2.3",
+    version="0.2.4",
     description="Helpful model for trading.",
     long_description=long_description,
     long_description_content_type="text/markdown",
