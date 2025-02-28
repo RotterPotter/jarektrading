@@ -43,7 +43,7 @@ class Service:
 
     # Oleksandr updated 08/02  !!!
 
-    def generate_summary(self, report_df) -> pd.DataFrame:
+     def generate_summary(self, report_df) -> pd.DataFrame:
         opened_trades_df = report_df[report_df["Name"] == "OPENING"]
         opened_trades_count = len(opened_trades_df)
         closed_trades_df = report_df[report_df["Name"] == "CLOSING"]
@@ -68,7 +68,14 @@ class Service:
 
 
         for trade_row in closed_trades_df.itertuples(index=False):
-            pl += float(trade_row._8)
+            try:
+              pl += float(trade_row._8)
+            except ValueError:
+              if trade_row.Result == "LOSS":
+                pl += float(f'-{trade_row._8.split("-")[-1]}')
+              else:
+                pl += float(trade_row._8.split("+")[-1])
+
             if trade_row.Result == "LOSS":
                 consecutive_losses += 1
             elif trade_row.Result == "WIN" or "BE":
