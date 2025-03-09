@@ -58,25 +58,37 @@ class BacktestingPorgram:
         triggered_checkers: list = self.check_to_close(candle_data)
         # if there are trigered checkers, close the trade
         if len(triggered_checkers) > 0:
-          self.close_the_trade(triggered_checkers)
+          self.close_trade(triggered_checkers)
       else:
         # Use checkers to analyze candle's data. If any of them was triggered, returns true
         triggered_checkers: list = self.check_to_open(candle_data)
         # if there are trigered checkers, close the trade
         if len(triggered_checkers) > 0:
-          self.open_the_trade(triggered_checkers)
+          self.open_trade(triggered_checkers)
 
-  def close_the_trade(self):
+  # TODO
+  def open_trade(self, candle_data, triggered_checkers):
+    # Initialization of the Trade object and passing params
+    trade = Trade() # TODO: define needed params
+    # Set opened trade to this trade
+    self.open_trade = trade
+    # Add logging of trade's opening
+    self.logs.append("Testing message")
+    # Add trade to executed trades variable
+    self.executed_trades.append(trade)
+    
+  def close_trade(self):
+    pass
+  
+  # TODO
+  def update_debug_report(self):
     pass
 
-  def open_the_trade(self):
-    pass
+  def check_to_close(self, candle_data) -> list:
+    return []
 
-  def check_to_close(self, candle_data) -> bool:
-    pass
-
-  def check_to_open(self, candle_data) -> bool:
-    pass
+  def check_to_open(self, candle_data) -> list:
+    return []
 
   def analyze_candle_data_and_make_decision(self, candle_data):
     # if self.opened_trade:
@@ -93,9 +105,10 @@ class BacktestingPorgram:
 
 if __name__ == "__main__":
   service = Service()
-  data = service.take_polygon_gold_historical_data(from_="2023-06-01", to="2023-06-13", candle_size=15)
+  # data = service.take_polygon_gold_historical_data(from_="2023-06-01", to="2023-06-13", candle_size=15)
+  # data.to_csv("data.csv", index=False)
+  data = pd.read_csv("data.csv")
   program = BacktestingPorgram(historical_data=data, initial_balance=10000)
   program.start()
-  # report = program.generate_report()
 
 
