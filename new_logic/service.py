@@ -1,9 +1,14 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
 from polygon import RESTClient
 import pandas as pd
 import datetime
-from config import settings
+from new_logic.config import Settings
 from typing import Union, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 
 class Service:
@@ -52,3 +57,72 @@ class Service:
 
     def calculate_half_fib_buy(self, pdLSL: float, adH: float) -> float:
         return adH - ((adH - pdLSL) * 0.5)
+    
+    def find_pdLSH(self, candle_data, data: pd.DataFrame) -> Optional[float]:
+        """
+            1. Takes candle date from candle_data.
+            2. Filters data dataframe to include only series with previous day date.
+            3. Returns None if previous date dataframe is empty.
+            4. Returns Max value in "High" column of the previous date dataframe.
+        """
+        candle_date_datetime = self.get_datetime_from_iso_string(candle_data.GmtTime)
+        previous_day_date_datetime = candle_date_datetime - timedelta(days=1)
+        previous_day_date_string = str(previous_day_date_datetime.date())
+        filtered_df = data[data['GmtTime'].str.startswith(previous_day_date_string)]
+
+        if filtered_df.empty:
+            return None
+        
+        return filtered_df["High"].max()
+
+    def find_pdLSL(self, candle_data, data: pd.DataFrame) -> Optional[float]:
+        """
+            1. Takes candle date from candle_data.
+            2. Filters data dataframe to include only series with previous day date.
+            3. Returns None if previous date dataframe is empty.
+            4. Returns Min value in "Low" column of the previous date dataframe.
+        """
+        candle_date_datetime = self.get_datetime_from_iso_string(candle_data.GmtTime)
+        previous_day_date_datetime = candle_date_datetime - timedelta(days=1)
+        previous_day_date_string = str(previous_day_date_datetime.date())
+        filtered_df = data[data['GmtTime'].str.startswith(previous_day_date_string)]
+
+        if filtered_df.empty:
+            return None
+        
+        return filtered_df["Low"].min()
+    
+    def find_adH(self, candle_data, data: pd.DataFrame) -> Optional[float]:
+        """
+            1. Takes candle date from candle_data.
+            2. Filters data dataframe to include only series with actual day date.
+            3. Returns None if actual date dataframe is empty.
+            4. Returns Max value in "High" column of the actual date dataframe.
+        """
+        candle_date_datetime = self.get_datetime_from_iso_string(candle_data.GmtTime)
+        candle_date_string = str(candle_date_datetime.date())
+        filtered_df = data[data['GmtTime'].str.startswith(candle_date_string)]
+
+        if filtered_df.empty:
+            return None
+        
+        return filtered_df["High"].max()
+
+    def find_adL(self, candle_data, data: pd.DataFrame) -> Optional[float]:
+        """
+            1. Takes candle date from candle_data.
+            2. Filters data dataframe to include only series with actual day date.
+            3. Returns None if actual date dataframe is empty.
+            4. Returns Min value in "Low" column of the actual date dataframe.
+        """
+        candle_date_datetime = self.get_datetime_from_iso_string(candle_data.GmtTime)
+        candle_date_string = str(candle_date_datetime.date())
+        filtered_df = data[data['GmtTime'].str.startswith(candle_date_string)]
+
+        if filtered_df.empty:
+            return None
+        
+        return filtered_df["Low"].min()
+    
+    def get_datetime_from_iso_string(self, iso_string:str) -> datetime:
+        return datetime.strptime(iso_string.split(" ")[0], "%Y-%m-%d")
