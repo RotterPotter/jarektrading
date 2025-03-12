@@ -14,14 +14,17 @@ class VariableRequired(Exception):
 class Checker:
   def __init__(self, active_checkers:Dict[str, List[str]], data, params: dict):
     self.CHECKERS = {
+      "start_time_checker": self.start_time_checker,
       "end_time_checker": self.end_time_checker,
       "no_more_trades_time_checker": self.no_more_trades_time_checker,
-      "to_sell_order_1_checker": self.to_sell_order_1_checker
+      "to_sell_order_1_checker": self.to_sell_order_1_checker,
+      "to_buy_order_1_checker": self.to_buy_order_1_checker
     }
     
     self.REQUIRED_PARAMS = {
+      "start_time_checker": ["start_time",],
       "end_time_checker": ["end_time", ],
-      "no_more_trades_time_checker" : ["no_more_trades_time",]
+      "no_more_trades_time_checker" : ["no_more_trades_time",],
     }
     self.data = data
     self.params = params
@@ -39,27 +42,47 @@ class Checker:
     except VariableRequired as e:
       print(f"Error: {e}")
 
-  def check(self, candle_data, trade_is_opened:bool) -> Tuple[Optional[str], list]: # returns an action to take (BUY/SELL/SKIP) and list of triggered checkers
-    triggered_checkers = []
+  # TODO test
+  def check(self, candle_data, trade_is_opened:bool) -> Tuple[Optional[str], Optional[str]]: # returns an action to take (or None) and name of the triggered checker (or None)
+    """
+      Serves as a router to checkers. 
+      1. Looks on the variable "trade_is_opened" and take list of available checkers for one of two scenarious (when_trade_is_opened, when_trade_is_not_opened).
+      2. Iterates through the list of active checkers and check candle data with each checker.
+      3. The first triggered checker will break an iteration.
+      4. If checker was triggered, function returns Tuple[action:str, checker_name:str].
+      5. If checker wasn't triggered, function returns Tuple[None, None].
+    """
     for checker_name in self.CHECKERS.keys():
-      if trade_is_opened:
+      if trade_is_opened == True:
         for checker_name in self.active_checkers["when_trade_is_opened"]:
           action = self.CHECKERS[checker_name](candle_data)
           if action is not None:
-            triggered_checkers.append({checker_name: action})
-      elif not trade_is_opened:
-        for checker_name in self.active_checkers["when_trade_is_not_opened"]:
+            return action, checker_name
+      elif trade_is_opened == False:
+        for checker_name in self.active_checkers["when_trade_is_not_opened"]: 
           action = self.CHECKERS[checker_name](candle_data)
           if action is not None:
-            triggered_checkers.append({checker_name: action})
-
+            return action, checker_name
+    return None, None
+  
+  # TODO test
+  def start_time_checker(self, candle_data) -> Optional[str]:
+    """
+      Purpose: 
+        To prevent executing any trade before start time
+      Description:
+        Returns "SKIP" if candle_time < start_time(specified in params).
+        Returns None otherwise.
+      Note:
+        "SKIP" action means, that no more checkers should be checked for this candle.
+        None tells to the program to execute the next available checker.
+    """
+    start_time = datetime.strptime(self.params["start_time"], "%H:%M").time()
+    candle_time = datetime.strptime(str(candle_data.GmtTime).split(" ")[1][:5], "%H:%M").time()
+    if candle_time < start_time:
+      return "SKIP"
+    return None
     
-    action = None
-    # returns the first triggered action if any
-    if len(triggered_checkers) > 0:
-      action = [action for action in triggered_checkers[0].items()][0]
-    return action, triggered_checkers
-
   def end_time_checker(self, candle_data) -> Optional[str]:
     """
       Purpose: 
@@ -72,7 +95,7 @@ class Checker:
     end_time = datetime.strptime(self.params["end_time"], "%H:%M").time()
     candle_time = datetime.strptime(str(candle_data.GmtTime).split(" ")[1][:5], "%H:%M").time()
     if candle_time >= end_time:
-      return "CLOSE"
+      return "CLOSE 100%"
     return None
   
   def no_more_trades_time_checker(self, candle_data) -> Optional[str]:
@@ -92,7 +115,7 @@ class Checker:
       return "SKIP"
     return None
 
-  # TODO test for the checker
+  # TODO test 
   def to_sell_order_1_checker(self, candle_data):
     """
       Purpose:
@@ -116,18 +139,42 @@ class Checker:
     
     sell_price = service.calculate_sell_price(pdLSH, adL)
     if candle_data.High >= sell_price:
-      return "SELL"
+      return "SELL 1%"
     return None
 
-  # TODO checker + test
-  def to_buy_order_1_checker(self, candle_date):
-    pass
+  # TODO test
+  def to_buy_order_1_checker(self, candle_data):
+    """
+      Purpose:
+      TODO
+        To check candle's conditions to open sell trade. (candle_data.Low <= buy_price)
+      Desctiption: 
+        1. Uses custom functions from the service.Service object to find required variables (pdLSl, adH) for the step 3.
+        2. If required variables for step 3 weren't found (in case of data missing), returns None.
+        3. Calculates buy price using custom function from the service.Service object.
+        4. Returns "BUY" action, if candle_data.Low <= buy_price.
+        5. Returns None, if candle_data.Low > buy_price.
+      Notes:
+        None tells to the program to move to the next checker.
+        "BUY" tells to the program to execute buy trade.
+    """
+    service = Service()
+    adH = service.find_adH(candle_data, self.data)
+    pdLSL = service.find_pdLSL(candle_data, self.data)
 
-  # TODO checker + test
+    if pdLSL is None or adH is None:
+      return None
+    
+    buy_price = service.calculate_buy_price(pdLSL, adH)
+    if candle_data.Low <= buy_price:
+      return "BUY 1%"
+    return None
+
+  # TODO (implement when history will be available) # function should use history 
   def if_sell_was_closed_checker(self, candle_data):
     pass
 
-  # TODO checker + test
+  # TODO (implement when history will be available) # function should use history
   def if_buy_was_closed_checker(self, candle_data):
     pass
 

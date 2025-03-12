@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../'
 from polygon import RESTClient
 import pandas as pd
 import datetime
-from new_logic.config import Settings
+from new_logic.config import settings
 from typing import Union, Optional
 from datetime import date, datetime, timedelta
 
